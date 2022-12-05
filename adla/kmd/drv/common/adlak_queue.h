@@ -37,19 +37,21 @@ extern "C" {
 
 /**************************Type Definition and Structure**********************/
 struct adlak_global_id {
-    s32 global_id_rs;
-    s32 global_id_pwe;
-    s32 global_id_pwx;
-    u32 global_id_sw;  // global sw index
-    u32 global_time_stamp;
-    s32 start_id_rs;
-    s32 start_id_pwe;
-    s32 start_id_pwx;
+    int32_t  global_id_rs;
+    int32_t  global_id_pwe;
+    int32_t  global_id_pwx;
+    uint32_t global_id_sw;  // global sw index
+    uint32_t global_time_stamp;
+    int32_t  start_id_rs;
+    int32_t  start_id_pwe;
+    int32_t  start_id_pwx;
 };
 
 struct adlak_dev_inference {
     adlak_os_spinlock_t spinlock;
     adlak_os_sema_t     sem_irq;
+    adlak_os_sema_t     sem_dpm;
+    int                 dmp_timeout;
     adlak_os_timer_t    emu_timer;
     adlak_os_timer_t    dpm_timer;
     adlak_os_thread_t   thrd_inference;
@@ -73,7 +75,7 @@ struct adlak_workqueue {
     struct adlak_global_id id_backup;  // for rollback
     struct adlak_global_id id_cur;     // for rollback
 
-    struct adlak_dev_inference dev_infrence;
+    struct adlak_dev_inference dev_inference;
 };
 /************************** Function Prototypes ******************************/
 
@@ -85,11 +87,11 @@ int adlak_debug_invoke_list_dump(struct adlak_device *padlak, uint32_t debug);
 
 int adlak_test_irq_emu(struct adlak_device *padlak);
 
-u32  adlak_cmd_get_sw_id(struct adlak_workqueue *pwq);
-void adlak_wq_globalid_backup(struct adlak_device *padlak);
-void adlak_wq_globalid_rollback(struct adlak_device *padlak);
-int  adlak_dev_inference_init(struct adlak_device *padlak);
-int  adlak_dev_inference_deinit(struct adlak_device *padlak);
+uint32_t adlak_cmd_get_sw_id(struct adlak_workqueue *pwq);
+void     adlak_wq_globalid_backup(struct adlak_device *padlak);
+void     adlak_wq_globalid_rollback(struct adlak_device *padlak);
+int      adlak_dev_inference_init(struct adlak_device *padlak);
+int      adlak_dev_inference_deinit(struct adlak_device *padlak);
 #ifdef __cplusplus
 }
 #endif

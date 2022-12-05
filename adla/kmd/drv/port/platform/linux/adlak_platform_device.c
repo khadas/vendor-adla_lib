@@ -56,6 +56,8 @@ static const struct of_device_id adlak_child_pdev_match[] = {{
 MODULE_DEVICE_TABLE(of, adlak_child_pdev_match);
 #endif
 
+struct regulator            *regulator_nna;
+#define REGULATOR_NAME      "vdd_npu"
 /************************** Function Prototypes ******************************/
 
 /*****************************************************************************/
@@ -91,7 +93,7 @@ static int adlak_create_cdev(struct adlak_device *padlak) {
     if (!padlak) {
         return ERR(ENOMEM);
     }
-    id = ida_simple_get(&adlak_ida, 0, ADLAK_MAX_DEVICES, GFP_KERNEL);
+    id = ida_simple_get(&adlak_ida, 0, ADLAK_MAX_DEVICES, ADLAK_GFP_KERNEL);
     if (id < 0) {
         return id;
     }
@@ -115,7 +117,7 @@ static int adlak_create_cdev(struct adlak_device *padlak) {
     sysdev = device_create(padlak->class, padlak->dev, padlak->devt, padlak, DEVICE_NAME "%d", id);
     if (IS_ERR(sysdev)) {
         AML_LOG_ERR("device register failed\n");
-        ret = PTR_ERR(sysdev);
+        ret = ADLAK_PTR_ERR(sysdev);
         goto err_remove_chardev;
     }
 
@@ -141,7 +143,7 @@ static int adlak_create_misc(struct adlak_device *padlak) {
 
     if (!padlak) return ERR(EINVAL);
 
-    padlak->misc = devm_kzalloc(padlak->dev, sizeof(struct miscdevice), GFP_KERNEL);
+    padlak->misc = devm_kzalloc(padlak->dev, sizeof(struct miscdevice), ADLAK_GFP_KERNEL);
     if (!padlak->misc) {
         AML_LOG_ERR("no memory in allocating misc struct");
         return ERR(ENOMEM);
@@ -167,12 +169,61 @@ static int adlak_destroy_misc(struct adlak_device *padlak) {
     return 0;
 }
 
+int adlak_voltage_init(void *data) {
+    int ret = 0;
+    struct adlak_device *padlak = (struct adlak_device *)data;
+
+    regulator_nna = devm_regulator_get(padlak->dev, REGULATOR_NAME);
+    if (IS_ERR(regulator_nna)) {
+        AML_LOG_ERR("regulator_get vddnpu fail!\n");
+    }
+
+    ret = regulator_enable(regulator_nna);
+    if (ret < 0)
+    {
+        AML_LOG_ERR("regulator_enable error\n");
+    }
+
+    AML_LOG_INFO("ADLA KMD voltage init success ");
+
+    return ret;
+}
+
+int adlak_voltage_uninit(void *data) {
+    int ret = 0;
+
+    if (regulator_nna == NULL)
+    {
+        AML_LOG_ERR("regulator supply is NULL\n");
+        return -1;
+    }
+    ret = regulator_disable(regulator_nna);
+    if (ret < 0)
+    {
+        AML_LOG_ERR("regulator_disable error\n");
+    }
+
+    devm_regulator_put(regulator_nna);
+
+    AML_LOG_INFO("ADLA KMD voltage uninit success ");
+    return ret;
+}
+
 static int adlak_platform_remove(struct platform_device *pdev) {
     int                  ret    = 0;
     struct adlak_device *padlak = platform_get_drvdata(pdev);
     AML_LOG_DEBUG("%s", __func__);
     adlak_device_deinit((void *)padlak);
     adlak_os_mutex_lock(&padlak->dev_mutex);
+
+    if (padlak->regulator_nn_en)
+    {
+        ret = adlak_voltage_uninit(padlak);
+        if (ret < 0)
+        {
+            AML_LOG_ERR("voltage uninit fail!\n");
+        }
+    }
 
     adlak_platform_free_resource(padlak);
 
@@ -203,7 +254,7 @@ static int adlak_platform_probe(struct platform_device *pdev) {
     struct adlak_device *padlak = NULL;
     AML_LOG_DEBUG("%s", __func__);
 
-    padlak = adlak_os_zalloc(sizeof(struct adlak_device), GFP_KERNEL);
+    padlak = adlak_os_zalloc(sizeof(struct adlak_device), ADLAK_GFP_KERNEL);
     if (!padlak) {
         ret = ERR(ENOMEM);
         goto err_alloc_data;
@@ -223,6 +274,15 @@ static int adlak_platform_probe(struct platform_device *pdev) {
     ret            = adlak_platform_get_resource(padlak);
     if (ret) {
         goto err_get_res;
+    }
+    /* set voltage */
+    if (padlak->regulator_nn_en)
+    {
+        ret = adlak_voltage_init(padlak);
+        if (ret < 0)
+        {
+            AML_LOG_ERR("voltage init fail!\n");
+        }
     }
     ret = adlak_platform_request_resource(padlak);
     if (ret) {
@@ -261,9 +321,46 @@ err_alloc_data:
     return ret;
 }
 
+
+static int adlak_platform_sys_suspend(struct platform_device *pdev,pm_message_t state) {
+    int                  ret    = 0;
+    struct adlak_device *padlak = platform_get_drvdata(pdev);
+    AML_LOG_DEBUG("%s", __func__);
+    adlak_platform_suspend(padlak);
+    /* success */
+    AML_LOG_INFO("ADLA KMD suspend done");
+    return 0;
+}
+
+static int adlak_platform_sys_resume(struct platform_device *pdev) {
+    int                  ret    = 0;
+    struct adlak_device *padlak = platform_get_drvdata(pdev);
+    AML_LOG_DEBUG("%s", __func__);
+    adlak_platform_resume(padlak);
+    /* success */
+    AML_LOG_INFO("ADLA KMD resume done");
+    return 0;
+}
+
+static int adlak_platform_sys_pm_suspend(struct device *dev)
+{
+    pm_message_t state={0};
+    return adlak_platform_sys_suspend(to_platform_device(dev), state);
+}
+
+static int adlak_platform_sys_pm_resume(struct device *dev)
+{
+    return adlak_platform_sys_resume(to_platform_device(dev));
+}
+static const struct dev_pm_ops viv_dev_pm_ops = {
+    SET_SYSTEM_SLEEP_PM_OPS(adlak_platform_sys_pm_suspend, adlak_platform_sys_pm_resume)
+};
+
 static struct platform_driver adlak_platform_driver = {
     .probe  = adlak_platform_probe,
     .remove = adlak_platform_remove,
+    .suspend = adlak_platform_sys_suspend,
+    .resume = adlak_platform_sys_resume,
     .driver =
         {
             .name  = DEVICE_NAME,
@@ -271,6 +368,7 @@ static struct platform_driver adlak_platform_driver = {
 #ifdef CONFIG_OF
             .of_match_table = of_match_ptr(adlak_child_pdev_match),
 #endif
+            .pm     = &viv_dev_pm_ops,
         },
 };
 
@@ -308,11 +406,11 @@ static int adlak_class_init(void) {
     adlak_class = class_create(THIS_MODULE, CLASS_NAME);
     if (IS_ERR(adlak_class)) {
         AML_LOG_ERR("class_create failed for adla.");
-        ret = PTR_ERR(adlak_class);
+        ret = ADLAK_PTR_ERR(adlak_class);
         goto cleanup;
     }
     if (adlak_create_class_file(adlak_class)) {
-        ret = PTR_ERR(adlak_class);
+        ret = ADLAK_PTR_ERR(adlak_class);
         goto cleanup;
     }
     return 0;
@@ -347,13 +445,13 @@ static int __init adlak_module_init(void) {
     ret = adlak_platform_device_init();
     if (0 > ret) {
         AML_LOG_ERR("Soc platform driver init failed.");
-        return -ENODEV;
+        return ERR(ENODEV);
     }
 #endif
     ret = platform_driver_register(&adlak_platform_driver);
     if (0 > ret) {
         AML_LOG_ERR("platform driver register failed.");
-        return -ENODEV;
+        return ERR(ENODEV);
     }
     AML_LOG_DEBUG("platform_driver_register successed.");
     return 0;
