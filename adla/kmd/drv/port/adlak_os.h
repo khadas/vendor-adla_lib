@@ -89,14 +89,14 @@ typedef struct {
     unsigned int thrd_should_stop;
 } adlak_os_thread_t;
 
-int  adlak_os_thread_create(adlak_os_thread_t *pthrd, int(*func)(void *), void *arg);
+int  adlak_os_thread_create(adlak_os_thread_t *pthrd, void *(*func)(void *), void *arg);
 int  adlak_os_thread_join(adlak_os_thread_t *pthrd);
 int  adlak_os_thread_detach(adlak_os_thread_t *pthrd);
 void adlak_os_thread_yield(void);
 
 typedef void *adlak_os_timer_t;
 
-int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(struct timer_list *), void *param);
+int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(void *), void *param);
 int adlak_os_timer_destroy(adlak_os_timer_t *ptim);
 int adlak_os_timer_del(adlak_os_timer_t *ptim);
 
