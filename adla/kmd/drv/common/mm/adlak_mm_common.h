@@ -133,6 +133,10 @@ struct adlak_share_swap_buf {
     unsigned int offset_start;     /*record the min value of start addr */
     unsigned int bitmap_count_max; /*record the max number of bitmap*/
     unsigned int share_swap_en;
+    unsigned int share_buf_size;
+    phys_addr_t  share_buf_phys_addr;
+    void *       share_buf_cpu_addr;
+    dma_addr_t   share_buf_dma_addr;
 };
 
 struct adlak_mem {

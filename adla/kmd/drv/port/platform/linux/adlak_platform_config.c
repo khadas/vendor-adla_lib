@@ -27,7 +27,7 @@
 #include "adlak_hw.h"
 #include "adlak_interrupt.h"
 #include "adlak_submit.h"
-
+#include <linux/regulator/consumer.h>
 #include <linux/arm-smccc.h>
 #include <linux/amlogic/media/registers/cpu_version.h>
 
@@ -68,6 +68,8 @@ static int adlak_dpm_period = 300;
 static int adlak_log_level = -1;
 
 static uint adlak_share_swap = 0;
+
+static uint adlak_share_buf_size = 0;
 
 #include "./adlak_platform_module_param.c"
 /**************************** Type Definitions *******************************/
@@ -612,9 +614,11 @@ int adlak_platform_get_resource(void *data) {
 #endif
     }
 
-    padlak->share_swap_en = 0;
+    padlak->share_swap_en  = 0;
+    padlak->share_buf_size = 0;
     if (adlak_share_swap > 0) {
-        padlak->share_swap_en = 1;
+        padlak->share_swap_en  = 1;
+        padlak->share_buf_size = adlak_share_buf_size;
     }
 
     return 0;

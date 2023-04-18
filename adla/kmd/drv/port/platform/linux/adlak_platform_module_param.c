@@ -72,3 +72,6 @@ MODULE_PARM_DESC(log_level, "the default log_level of kmd");
 
 module_param_named(share_swap, adlak_share_swap, uint, 0644);
 MODULE_PARM_DESC(share_swap, "share swap buffer between different models, disabled by default");
+
+module_param_named(share_buf_size, adlak_share_buf_size, uint, 0644);
+MODULE_PARM_DESC(share_buf_size, "share swap buffer size");

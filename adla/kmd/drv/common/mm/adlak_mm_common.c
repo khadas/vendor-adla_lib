@@ -322,6 +322,10 @@ int adlak_mm_init(struct adlak_device *padlak) {
     mm->share_buf.share_swap_en    = padlak->share_swap_en;
     if (mm->share_buf.share_swap_en) {
         adlak_os_printf("share buffer enabled\n");
+        mm->share_buf.share_buf_size      = padlak->share_buf_size;
+        mm->share_buf.share_buf_cpu_addr  = 0;
+        mm->share_buf.share_buf_dma_addr  = 0;
+        mm->share_buf.share_buf_phys_addr = 0;
     }
 
     if (!mm->use_smmu) {
@@ -574,8 +578,12 @@ void adlak_free_uncacheable(struct adlak_mem *mm, struct adlak_mem_handle *mm_in
                 return adlak_free_through_dma(mm, mm_info);
             }
         } else {
-            // free uncacheable memory through dma api
-            return adlak_free_through_dma(mm, mm_info);
+            if (mm_info->mem_type & ADLAK_ENUM_MEMTYPE_INNER_SHARE) {
+                return adlak_free_share_through_dma(mm, mm_info);
+            } else {
+                // free uncacheable memory through dma api
+                return adlak_free_through_dma(mm, mm_info);
+            }
         }
     }
 }
@@ -606,8 +614,12 @@ static int adlak_malloc_uncacheable(struct adlak_mem *mm, struct adlak_mem_handl
                 return ret;
             }
         } else {
-            // alloc uncacheable memory through dma api
-            return adlak_malloc_through_dma(mm, mm_info);
+            if (mm_info->req.mem_type & ADLAK_ENUM_MEMTYPE_INNER_SHARE) {
+                return adlak_malloc_share_through_dma(mm, mm_info);
+            } else {
+                // alloc uncacheable memory through dma api
+                return adlak_malloc_through_dma(mm, mm_info);
+            }
         }
     }
 }
@@ -686,6 +698,7 @@ static void adlak_mm_rewrite_memtype(struct adlak_mem *mm, struct adlak_buf_req 
     }
     if (!mm->use_smmu) {
         mm_info->req.mem_type = mm_info->req.mem_type | ADLAK_ENUM_MEMTYPE_INNER_CONTIGUOUS;
+        mm_info->req.mem_type = mm_info->req.mem_type | ADLAK_ENUM_MEMTYPE_INNER_PA_WITHIN_4G;
     }
     if (pbuf_req->ret_desc.mem_type & ADLAK_ENUM_MEMTYPE_PA_WITHIN_4G) {
         mm_info->req.mem_type = mm_info->req.mem_type | ADLAK_ENUM_MEMTYPE_INNER_PA_WITHIN_4G;

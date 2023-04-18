@@ -211,7 +211,7 @@ static uint32_t adlak_hal_get_reg(void *data, uint32_t offset) {
     struct io_region *   region = padlak->hw_res.preg;
     uint32_t             val;
     val = adlak_read32(region, offset);
-    AML_LOG_DEBUG("read reg [0x%X] = 0x%X", offset, val);
+    // AML_LOG_DEBUG("read reg [0x%X] = 0x%X", offset, val);
     return val;
 }
 

@@ -46,7 +46,6 @@
 #include <linux/version.h>
 #include <linux/vmalloc.h>
 #include <uapi/linux/sched/types.h>
-#include <linux/regulator/consumer.h>
 #ifdef CONFIG_COMPAT
 #include <linux/compat.h>
 #endif

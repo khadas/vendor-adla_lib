@@ -112,7 +112,8 @@ struct adlak_device {
     int   dpm_period_set;
     void *pdpm;  // dynamic power management
 
-    bool share_swap_en; /*Share swap memory between diffrent models*/
+    bool            share_swap_en; /*Share swap memory between diffrent models*/
+    unsigned int    share_buf_size;
     int             nn_regulator_type;
     int             nn_dts_hw_ver;
     uint32_t        nn_voltage;
