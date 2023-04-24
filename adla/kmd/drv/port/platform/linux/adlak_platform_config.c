@@ -103,6 +103,7 @@ extern uint32_t g_adlak_emu_dev_cmq_total_size;
 #endif
 struct regulator            *nn_regulator;
 int                         nn_regulator_flag;
+extern int                  adlak_kthread_cpuid;
 
 /************************** Function Prototypes ******************************/
 
@@ -434,7 +435,7 @@ static int adlak_voltage_adjust_default(struct adlak_device *padlak) {
 int adlak_voltage_init(void *data) {
     int ret = 0;
     struct adlak_device *padlak = (struct adlak_device *)data;
-    switch ((nn_regulator_type_t)padlak->nn_dts_hw_ver) {
+    switch ((nn_hw_version_t)padlak->nn_dts_hw_ver) {
     case Adla_Hw_Ver_r2p0:
         ret = adlak_voltage_adjust_r2p0(padlak);
         break;
@@ -525,6 +526,10 @@ int adlak_platform_get_resource(void *data) {
 
     padlak->nn_dts_hw_ver = (int)adlak_get_nn_hw_version(padlak->dev);
     padlak->nn_regulator_type = (int)adlak_regulator_nn_available(padlak->dev);
+    /* t7c & s5 bind kthread to cpu1 */
+    if (padlak->nn_dts_hw_ver == Adla_Hw_Ver_r2p0 || padlak->nn_dts_hw_ver == Adla_Hw_Ver_r1p0) {
+        adlak_kthread_cpuid = 1;
+    }
 
     /* get ADLAK IO */
 

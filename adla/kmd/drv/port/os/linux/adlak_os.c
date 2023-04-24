@@ -383,6 +383,8 @@ int adlak_os_sema_give_from_isr(adlak_os_sema_t sem) {
 
 typedef struct adlak_os_thread_inner {
     struct task_struct *kthread;
+    void * (*function)(void *);
+    void * arg;
 } adlak_os_thread_inner_t;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0)
@@ -407,9 +409,16 @@ static void signaler_set_rtpriority(adlak_os_thread_t *pthrd) {
 }
 #endif
 
-static int adlak_kthread_cpuid = -1;
+int adlak_kthread_cpuid = -1;
 module_param_named(kthread_cpuid, adlak_kthread_cpuid, int, 0644);
 MODULE_PARM_DESC(kthread_cpuid, "bind adlak_kthread the a \"housekeeping\" CPU");
+
+static int adlak_os_thread_function(void *param) {
+    adlak_os_thread_inner_t * pthread_inner = (adlak_os_thread_inner_t *)param;
+    if (pthread_inner->function)
+        pthread_inner->function(pthread_inner->arg);
+    return 0;
+}
 
 int adlak_os_thread_create(adlak_os_thread_t *pthrd, void *(*func)(void *), void *arg) {
     static uint32_t          thread_num    = 0;
@@ -423,8 +432,10 @@ int adlak_os_thread_create(adlak_os_thread_t *pthrd, void *(*func)(void *), void
         return ERR(ENOMEM);
     }
     pthrd->thrd_should_stop = 0;
+    pthread_inner->function = func;
+    pthread_inner->arg = arg;
     pthread_inner->kthread =
-        kthread_create((int (*)(void *))func, (void *)arg, "adlak_kthread_%d", thread_num);
+        kthread_create(adlak_os_thread_function, (void *)pthread_inner, "adlak_kthread_%d", thread_num);
     if (ADLAK_IS_ERR_OR_NULL(pthread_inner->kthread)) {
         adlak_os_free(pthread_inner);
         pthrd->handle = (void *)pthread_inner;
@@ -483,7 +494,15 @@ void adlak_os_thread_yield(void) {
 typedef struct adlak_os_timer_inner {
     struct timer_list timer;
     unsigned long     flags;
+    void (*function)(void *);
+    void * param;
 } adlak_os_timer_inner_t;
+
+static void adlak_os_timer_function(struct timer_list * ptimer) {
+    adlak_os_timer_inner_t * ptimer_inner = container_of(ptimer, adlak_os_timer_inner_t, timer);
+    if (ptimer_inner->function)
+        ptimer_inner->function(ptimer_inner->param);
+}
 
 int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(void *), void *param) {
     adlak_os_timer_inner_t *ptimer_inner = NULL;
@@ -493,7 +512,9 @@ int adlak_os_timer_init(adlak_os_timer_t *ptim, void (*func)(void *), void *para
     if (ADLAK_IS_ERR_OR_NULL(ptimer_inner)) {
         return ERR(ENOMEM);
     }
-    timer_setup(&ptimer_inner->timer, (void (*)(struct timer_list *))func, 0);
+    ptimer_inner->function = func;
+    ptimer_inner->param = param;
+    timer_setup(&ptimer_inner->timer, adlak_os_timer_function, 0);
     *ptim = ptimer_inner;
     AML_LOG_DEBUG("timer_init success!\n");
     return ERR(NONE);
