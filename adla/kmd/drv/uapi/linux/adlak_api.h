@@ -46,7 +46,7 @@ extern "C" {
 
 #define ADLAK_IOCTL_MAGIC 'X'
 
-#define ADLAK_IOCTL_QUERYCAP _IOWR(ADLAK_IOCTL_MAGIC, 0, uint64_t)
+#define ADLAK_IOCTL_QUERYCAP _IOWR(ADLAK_IOCTL_MAGIC, 0, struct adlak_caps_desc)
 #define ADLAK_IOCTL_REQBUF _IOWR(ADLAK_IOCTL_MAGIC, 1, struct adlak_buf_req)
 #define ADLAK_IOCTL_FREEBUF _IOW(ADLAK_IOCTL_MAGIC, 2, struct adlak_buf_desc)
 #define ADLAK_IOCTL_REGISTER_NETWORK _IOWR(ADLAK_IOCTL_MAGIC, 3, struct adlak_network_desc)
